@@ -12,6 +12,7 @@ prompts = [
 sampling_params = SamplingParams(temperature=0.8, top_p=0.95)
 
 def main():
+    print("Starting the program...")
     llm = LLM(model="TinyLlama/TinyLlama-1.1B-Chat-v1.0")
     outputs = llm.generate(prompts, sampling_params)
     for output in outputs:
