@@ -9,16 +9,25 @@ from vllm.config import KVTransferConfig
 
 load_dotenv()
 
+# Standard test prompts (consistent with other benchmarks)
 prompts = [
     "Hello, my name is",
     "The president of the United States is",
+    "The capital of France is",
+    "Artificial intelligence is",
 ]
+
+# Standard parameters
+STANDARD_TEMPERATURE = 0.8
+STANDARD_TOP_P = 0.95
+STANDARD_MAX_TOKENS = 50
 
 def run_prefill(prefill_done, stop_event):
     os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES_PREFILL", "0")
     model_name = os.getenv("LLM_MODEL_NAME", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
     
-    sampling_params = SamplingParams(temperature=0, top_p=0.95, max_tokens=1)
+    # Prefill only generates 1 token to pass KV cache
+    sampling_params = SamplingParams(temperature=0, top_p=STANDARD_TOP_P, max_tokens=1)
 
     ktc = KVTransferConfig(
         kv_connector="SharedStorageConnector",
@@ -44,7 +53,12 @@ def run_decode(prefill_done):
     os.environ["CUDA_VISIBLE_DEVICES"] = os.getenv("CUDA_VISIBLE_DEVICES_DECODE", "1")
     model_name = os.getenv("LLM_MODEL_NAME", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
     
-    sampling_params = SamplingParams(temperature=0, top_p=0.95)
+    # Use standard parameters for decode phase
+    sampling_params = SamplingParams(
+        temperature=STANDARD_TEMPERATURE,
+        top_p=STANDARD_TOP_P,
+        max_tokens=STANDARD_MAX_TOKENS
+    )
 
     ktc = KVTransferConfig(
         kv_connector="SharedStorageConnector",
