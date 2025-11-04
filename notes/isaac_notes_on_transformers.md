@@ -1,5 +1,14 @@
 https://poloclub.github.io/transformer-explainer/
 
+--------------------------------------------------------------------------
+
+during decoding q is not a matrix but a vector...
+
+
+q . K - attention between last token we have seen, and rest at same time
+
+--------------
+
 tokens -> embeddings -> q, k, v embeddings -> split q, k, v across heads -> masked_self_attention[softmax(qk^T/rtdk + M)] dot V -> num_heads refined representations of each token after considering context -> MLP refines representations, expanding size -> more transformer blocks, enriching and enriching token representations -> the final token's output embedding is multiplied by learned weights, creating logits (number indicating how likely token is) -> filtered by sampling strategy, scaled through temperature, converted to probabilities through softmax. 
 
 a key fact: last token's output embedding is multiplied by learned weights in final layer -> making logits 
@@ -13,3 +22,25 @@ there are residual connections thaat add layer's input to its output: in attenti
 need to understand the attention mechanism a little bit better
 - low temperature makes large logits larger, and vice versa
 - some sampling strategies: top-k keeps k most likely, top-p keeps set where total probability is at least p (?)
+
+----------------------------------------------------------------------------------------------------------------
+
+Queries, are like questions, is this an adjective
+Keys are like adjectives, like this is an adjective, this is not an adjective
+Value is how much to adjust embedding by - residual...
+
+the matrix multiplication "an attention pattern" is like a grid of relevance
+
+------------------------------------------------
+
+at the end: "what this token means, given everything before it"
+
+------------------------------------------------
+
+each head is like ok, based on my queries (questions), and my keys (answers), i will update the representation by scaled values (upate understanding)
+
+maybe the FFN is doing something about a single token, as opposed to how the tokens relate to each other?
+
+mostly 2/3 MLP?
+
+Superposition?
