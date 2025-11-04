@@ -4,6 +4,11 @@ https://poloclub.github.io/transformer-explainer/
 
 during decoding q is not a matrix but a vector...
 
+
+q . K - attention between last token we have seen, and rest at same time
+
+--------------
+
 tokens -> embeddings -> q, k, v embeddings -> split q, k, v across heads -> masked_self_attention[softmax(qk^T/rtdk + M)] dot V -> num_heads refined representations of each token after considering context -> MLP refines representations, expanding size -> more transformer blocks, enriching and enriching token representations -> the final token's output embedding is multiplied by learned weights, creating logits (number indicating how likely token is) -> filtered by sampling strategy, scaled through temperature, converted to probabilities through softmax. 
 
 a key fact: last token's output embedding is multiplied by learned weights in final layer -> making logits 
