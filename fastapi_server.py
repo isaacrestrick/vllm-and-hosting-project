@@ -5,6 +5,7 @@ Based on benchmarking tweaks from the vllm-and-hosting-project
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
@@ -86,6 +87,15 @@ app = FastAPI(
     description="FastAPI server for vLLM inference with configurable settings",
     version="1.0.0",
     lifespan=lifespan
+)
+
+# Add CORS middleware to allow frontend requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
