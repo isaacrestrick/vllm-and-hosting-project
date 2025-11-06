@@ -51,3 +51,60 @@ So:
 
 -----------------------------------------
 
+From the engine's perspective, nothing has changed — all of this multiprocessing complexity is abstracted away through a call to model executor's execute_model.
+
+In the UniProcExecutor case: execute_model directly leads to calling execute_model on the worker
+In the MultiProcExecutor case: execute_model indirectly leads to calling execute_model on each worker through rpc_broadcast_mq
+
+----------------------------------------
+
+When vLLM says the processes use “shared memory,” they mean shared CPU RAM, not shared VRAM on the GPUs.
+
+They share certain data structures (like message queues) using the OS’s shared memory APIs — e.g., multiprocessing.shared_memory, mmap, or POSIX shm.
+
+3. GPU memory is still separate
+Each GPU process:
+
+
+Has its own CUDA context.
+
+
+Loads its own slice of the model weights into that GPU’s VRAM.
+
+
+Keeps its own KV cache blocks for its assigned attention heads.
+
+
+The shared memory queues never touch GPU tensors; they just coordinate who should run what.
+
+4. Literal picture
+CPU RAM (shared)
+ ├── rpc_broadcast_mq  ← all processes can read/write here
+ ├── worker_response_mq ← each worker writes results here
+GPU 0 VRAM — only worker 0 can access
+GPU 1 VRAM — only worker 1 can access
+...
+
+
+So in plain words:
+
+“Shared memory” = a shared chunk of CPU RAM used for fast messaging between processes.
+The GPUs themselves still have separate VRAM, each controlled by its own process.
+
+CPU Shared Memory Region
+ ├── rpc_broadcast_mq      (1 shared inbox → all workers read)
+ ├── worker_response_mq_0  (GPU0’s outbox)
+ ├── worker_response_mq_1  (GPU1’s outbox)
+ ├── ...
+ └── worker_response_mq_7  (GPU7’s outbox)
+
+---------------
+
+Essentially, each work item is:
+
+“Hey worker, run your slice of the model on these inputs and return your partial outputs.”
+
+Summary
+Step	Queue	Direction	Contents
+1	rpc_broadcast_mq	Parent → All workers	“Run forward pass on these tensors.”
+2	worker_response_mq[i]	Worker → Parent	“Here’s my result (partial output / status).”
