@@ -131,6 +131,102 @@ def test_model_info():
     print(f"Model info: {json.dumps(response.json(), indent=2)}\n")
 
 
+def test_streaming_generation():
+    """Test streaming generation with metrics"""
+    print("Testing streaming generation with metrics...")
+    
+    payload = {
+        "prompt": "The future of artificial intelligence is",
+        "temperature": 0.8,
+        "max_tokens": 30
+    }
+    
+    response = requests.post(f"{BASE_URL}/generate_stream", json=payload, stream=True)
+    
+    print("Streaming response:")
+    generated_text = ""
+    metrics = None
+    
+    for line in response.iter_lines():
+        if line:
+            line_str = line.decode('utf-8')
+            if line_str.startswith('data: '):
+                data = json.loads(line_str[6:])
+                if data['type'] == 'token':
+                    token = data.get('token', '')
+                    generated_text += token
+                    if 'ttft_ms' in data:
+                        print(f"  First token received (TTFT: {data['ttft_ms']} ms)")
+                    elif 'itl_ms' in data:
+                        print(f"  Token {data.get('token_index', '?')}: '{token}' (ITL: {data['itl_ms']} ms)")
+                elif data['type'] == 'done':
+                    metrics = data.get('metrics', {})
+                    print(f"\n  Generation complete!")
+                    print(f"  Generated text: {generated_text}")
+                    print(f"  Metrics: TTFT={metrics.get('ttft_ms', 0)}ms, TPOT={metrics.get('tpot_ms', 0)}ms, E2E={metrics.get('e2e_ms', 0)}ms")
+                    print(f"  Output tokens: {metrics.get('output_tokens', 0)}")
+                elif data['type'] == 'error':
+                    print(f"  Error: {data.get('error', 'Unknown error')}")
+    
+    print()
+
+
+def test_benchmark():
+    """Test benchmark endpoint"""
+    print("Testing benchmark endpoint...")
+    
+    prompts = [
+        "What is the capital of France?",
+        "Explain quantum computing in simple terms.",
+        "Write a haiku about artificial intelligence.",
+    ]
+    
+    payload = {
+        "prompts": prompts,
+        "temperature": 0.8,
+        "max_tokens": 50,
+        "max_ttft_ms": 500,  # SLO: max 500ms TTFT
+        "max_tpot_ms": 100,  # SLO: max 100ms TPOT
+        "max_e2e_ms": 2000,  # SLO: max 2000ms E2E
+    }
+    
+    response = requests.post(f"{BASE_URL}/benchmark", json=payload)
+    result = response.json()
+    
+    print(f"\nBenchmark Results:")
+    print(f"  Duration: {result['benchmark_duration_seconds']}s")
+    print(f"  Requests: {result['num_requests']}")
+    print(f"  Total tokens: {result['total_tokens']} (input: {result['total_input_tokens']}, output: {result['total_output_tokens']})")
+    
+    print(f"\nThroughput:")
+    print(f"  Total tokens/sec: {result['throughput']['total_tokens_per_sec']}")
+    print(f"  Output tokens/sec: {result['throughput']['output_tokens_per_sec']}")
+    print(f"  Requests/sec: {result['throughput']['requests_per_sec']}")
+    
+    print(f"\nGoodput (SLO-Compliant):")
+    print(f"  Compliant requests: {result['goodput']['slo_compliant_requests']}/{result['num_requests']}")
+    print(f"  Compliance rate: {result['goodput']['slo_compliance_rate']}%")
+    print(f"  Goodput: {result['goodput']['goodput_tokens_per_sec']} tokens/sec")
+    
+    print(f"\nTTFT Statistics:")
+    print(f"  Mean: {result['ttft']['mean_ms']}ms, Median: {result['ttft']['median_ms']}ms")
+    print(f"  P95: {result['ttft']['p95_ms']}ms, P99: {result['ttft']['p99_ms']}ms")
+    
+    print(f"\nTPOT Statistics:")
+    print(f"  Mean: {result['tpot']['mean_ms']}ms, Median: {result['tpot']['median_ms']}ms")
+    print(f"  P95: {result['tpot']['p95_ms']}ms, P99: {result['tpot']['p99_ms']}ms")
+    
+    print(f"\nITL Statistics:")
+    print(f"  Mean: {result['itl']['mean_ms']}ms, Median: {result['itl']['median_ms']}ms")
+    print(f"  P95: {result['itl']['p95_ms']}ms, P99: {result['itl']['p99_ms']}ms")
+    
+    print(f"\nE2E Statistics:")
+    print(f"  Mean: {result['e2e']['mean_ms']}ms, Median: {result['e2e']['median_ms']}ms")
+    print(f"  P95: {result['e2e']['p95_ms']}ms, P99: {result['e2e']['p99_ms']}ms")
+    
+    print()
+
+
 def main():
     """Run all tests"""
     print("=" * 80)
@@ -149,6 +245,10 @@ def main():
         # test_prefix_caching()
         
         test_batch_generation()
+        
+        # Test new streaming and benchmark endpoints
+        test_streaming_generation()
+        test_benchmark()
         
         print("=" * 80)
         print("All tests completed!")

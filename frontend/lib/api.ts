@@ -25,10 +25,98 @@ export interface InferenceResponse {
   };
 }
 
-export interface ModelInfo {
-  model_name: string;
-  prefix_caching_enabled: boolean;
-  max_model_len: number;
+export interface BenchmarkRequest {
+  prompts: string[];
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number;
+  top_k?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  max_ttft_ms?: number;
+  max_tpot_ms?: number;
+  max_e2e_ms?: number;
+}
+
+export interface BenchmarkResponse {
+  benchmark_duration_seconds: number;
+  num_requests: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_tokens: number;
+  throughput: {
+    total_tokens_per_sec: number;
+    output_tokens_per_sec: number;
+    requests_per_sec: number;
+  };
+  goodput: {
+    slo_compliant_requests: number;
+    slo_compliant_tokens: number;
+    goodput_tokens_per_sec: number;
+    slo_compliance_rate: number;
+  };
+  ttft: {
+    mean_ms: number;
+    median_ms: number;
+    p95_ms: number;
+    p99_ms: number;
+    min_ms: number;
+    max_ms: number;
+  };
+  tpot: {
+    mean_ms: number;
+    median_ms: number;
+    p95_ms: number;
+    p99_ms: number;
+    min_ms: number;
+    max_ms: number;
+  };
+  itl: {
+    mean_ms: number;
+    median_ms: number;
+    p95_ms: number;
+    p99_ms: number;
+    min_ms: number;
+    max_ms: number;
+  };
+  e2e: {
+    mean_ms: number;
+    median_ms: number;
+    p95_ms: number;
+    p99_ms: number;
+    min_ms: number;
+    max_ms: number;
+  };
+  slo_thresholds: {
+    max_ttft_ms?: number;
+    max_tpot_ms?: number;
+    max_e2e_ms?: number;
+  };
+  per_request_metrics: Array<{
+    ttft_ms: number;
+    tpot_ms: number;
+    e2e_ms: number;
+    itl_times_ms: number[];
+    output_tokens: number;
+    meets_slo: boolean;
+  }>;
+}
+
+export interface StreamTokenEvent {
+  type: 'token' | 'done' | 'error';
+  token?: string;
+  ttft_ms?: number;
+  itl_ms?: number;
+  token_index?: number;
+  metrics?: {
+    ttft_ms: number;
+    tpot_ms: number;
+    e2e_ms: number;
+    itl_times_ms: number[];
+    output_tokens: number;
+    generated_text: string;
+  };
+  error?: string;
 }
 
 export async function generateText(request: InferenceRequest): Promise<InferenceResponse> {
@@ -85,6 +173,74 @@ export async function checkHealth(): Promise<any> {
   
   if (!response.ok) {
     throw new Error('Server is not healthy');
+  }
+
+  return response.json();
+}
+
+export async function generateStream(
+  request: InferenceRequest,
+  onToken: (event: StreamTokenEvent) => void
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/generate_stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to start streaming generation');
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+
+  if (!reader) {
+    throw new Error('No response body reader available');
+  }
+
+  let buffer = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(line.slice(6));
+          onToken(data);
+          
+          if (data.type === 'done' || data.type === 'error') {
+            return;
+          }
+        } catch (e) {
+          console.error('Failed to parse SSE data:', e);
+        }
+      }
+    }
+  }
+}
+
+export async function runBenchmark(request: BenchmarkRequest): Promise<BenchmarkResponse> {
+  const response = await fetch(`${API_BASE_URL}/benchmark`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to run benchmark');
   }
 
   return response.json();
