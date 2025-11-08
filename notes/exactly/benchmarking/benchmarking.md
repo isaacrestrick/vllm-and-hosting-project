@@ -15,3 +15,18 @@ Exactly — that’s a clean way to think about it.
 
 So yes — **below (B_{sat})**, you get parallel speedup “for free,” limited only by memory bandwidth.
 **Beyond (B_{sat})**, you leave the memory-bound zone and become compute-bound.
+
+-----------------------
+so above Bsat you can't do the whole forward pass in parallel.
+-----------------------
+
+Exactly — that’s the key idea.
+
+Once you go **above (B_{sat})**, the GPU is already **fully utilized**, meaning all its compute cores and memory bandwidth are busy.
+
+So while the math for the batch is still *vectorized* (it’s all one big matmul), it can’t be done “for free” — you’ve hit the hardware’s **parallelism ceiling**. Every extra token adds more FLOPs and memory reads, and since there’s no idle capacity left, that extra work just makes the forward pass take longer.
+
+In short:
+
+* **Below (B_{sat})** → GPU underused → adding tokens doesn’t slow you down much (free parallelization).
+* **Above (B_{sat})** → GPU saturated → adding tokens means more real work → forward pass time increases roughly linearly.

@@ -28,8 +28,8 @@ run_latency() {
     
     vllm bench latency \
         --model "$MODEL" \
-        --input-tokens 32 \
-        --output-tokens 128 \
+        --input-len 32 \
+        --output-len 128 \
         --batch-size 8
 }
 
@@ -44,7 +44,9 @@ run_throughput() {
     echo ""
     
     vllm bench throughput \
-        --model "$MODEL"
+        --model "$MODEL" \
+        --input-len 32 \
+        --output-len 128
 }
 
 # Function to run serve benchmark
